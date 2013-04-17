@@ -1,0 +1,15 @@
+# Built Gems:
+/*-*.gem
+
+# The Gemfile.lock:
+/Gemfile.lock
+
+# .DS_Store files:
+.DS_Store
+
+# Yard doc cache:
+/.yardoc
+
+# Generated documentation:
+/doc
+

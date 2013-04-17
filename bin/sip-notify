@@ -1,0 +1,138 @@
+#! /usr/bin/env ruby
+# -*- coding: utf-8 -*-
+
+require 'optparse'
+
+$LOAD_PATH.unshift( File.join( File.dirname( __FILE__ ), '..', 'lib' ))
+
+require 'sip_notify'
+
+
+opts_defaults = {
+	:port => 5060,
+	:user => nil,
+	:verbosity => 0,
+	:event => 'check-sync;reboot=false',
+	:spoof_src_addr => nil,
+}
+opts = {}
+
+opts_parser = ::OptionParser.new { |op|
+	op.banner = "Usage: #{ ::File.basename(__FILE__) } HOST [options]"
+	
+	op.on( "-p", "--port=PORT", Integer,
+		"Port. (Default: #{opts_defaults[:port].inspect})"
+	) { |v|
+		opts[:port] = v.to_i
+		if ! v.between?( 1, 65535 )
+			$stderr.puts "Invalid port."
+			$stderr.puts op
+			exit 1
+		end
+	}
+	
+	op.on( "-u", "--user=USER", String,
+		"User/extension. (Default: #{opts_defaults[:user].inspect})"
+	) { |v|
+		opts[:user] = v
+	}
+	
+	op.on( "-e", "--event=EVENT", String,
+		"Event. (Default: #{opts_defaults[:event].inspect})"
+	) { |v|
+		opts[:event] = v
+	}
+	
+	op.on( "-t", "--type=EVENT_TYPE", String,
+		"Pre-defined event type."
+	) { |v|
+		opts[:event_type] = v
+	}
+	
+	op.on( "--types", String,
+		"List pre-defined event types."
+	) { |v|
+		puts "Pre-defined event types:"
+		puts "  #{'Name'.to_s.ljust(32)}  #{'Event header'.to_s.ljust(30)}  #{'Content-Type header'.to_s.ljust(35)}  +"
+		puts "  #{'-' * 32}  #{'-' * 30}  #{'-' * 35}  #{'-' * 1}"
+		::SipNotify.event_templates.each { |name, info|
+			puts "  #{name.to_s.ljust(32)}  #{info[:event].to_s.ljust(30)}  #{info[:content_type].to_s.ljust(35)}  #{info[:content] ? '+' : ' '}"
+		}
+		exit 0
+	}
+	
+	op.on( "--spoof-src-addr=SOURCE_ADDRESS", String,
+		"Spoof source IP address. (Must be run as root.)"
+	) { |v|
+		opts[:spoof_src_addr] = v
+	}
+	
+	op.on_tail( "-v", "--verbose", "Increase verbosity level. Can be repeated." ) { |v|
+		opts[:verbosity] ||= 0
+		opts[:verbosity] += 1
+	}
+	
+	op.on_tail("-?", "-h", "--help", "Show this help message." ) {
+		puts op
+		exit 0
+	}
+	
+}
+begin
+	opts_parser.parse!
+rescue ::OptionParser::ParseError => e
+	$stderr.puts e.message
+	$stderr.puts opts_parser
+	exit 1
+end
+
+opts[:host] = ::ARGV[0]
+
+if ! opts[:host]
+	$stderr.puts "Missing host argument."
+	$stderr.puts opts_parser
+	exit 1
+end
+
+if opts[:event] && opts[:event_type]
+	$stderr.puts "Event and event type arguments don't make sense together."
+	$stderr.puts opts_parser
+	exit 1
+end
+
+opts = opts_defaults.merge( opts )
+opts[:domain] = opts[:host]
+
+if opts[:event_type]
+	et = ::SipNotify.event_templates[ opts[:event_type].to_sym ]
+	if ! et
+		$stderr.puts "Event type not found: #{opts[:event_type].inspect}"
+		exit 1
+	end
+	opts[:event] = et[:event]
+	opts[:content_type] = et[:content_type]
+	opts[:content] = et[:content]
+end
+
+begin
+	::SipNotify.send_variations( opts[:host], {
+		:port => opts[:port],
+		:user => opts[:user],
+		:domain => opts[:domain],
+		:verbosity => opts[:verbosity],
+		:via_rport => true,
+		:event => opts[:event],
+		:content_type => opts[:content_type],
+		:content => opts[:content],
+		:spoof_src_addr => opts[:spoof_src_addr],
+	})
+rescue ::SipNotifyError => e
+	$stderr.puts "Error: #{e.message}"
+	exit 1
+end
+
+
+# Local Variables:
+# mode: ruby
+# End:
+
