@@ -707,7 +707,7 @@ class SipNotify
 		else
 			body = ''
 		end
-		body.encode!( ::Encoding::UTF_8, { :undef => :replace, :invalid => :replace })
+		body.encode!( ::Encoding::UTF_8, :undef => :replace, :invalid => :replace )
 		
 		sip_msg = [
 			'%{request_method} %{ruri} SIP/2.0',
@@ -754,7 +754,7 @@ class SipNotify
 			:content_type => @opts[:content_type].to_s.gsub(/\s+/, ' '),
 			:content_length => body.bytesize.to_s,
 		}
-		sip_msg.encode!( ::Encoding::UTF_8, { :undef => :replace, :invalid => :replace })
+		sip_msg.encode!( ::Encoding::UTF_8, :undef => :replace, :invalid => :replace )
 		sip_msg
 	end
 	
